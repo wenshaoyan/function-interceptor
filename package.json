@@ -1,0 +1,16 @@
+{
+  "name": "function-interceptor",
+  "version": "1.0.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/wenshaoyan/function-interceptor"
+  },
+  "description": "nodejs 拦截器",
+  "keywords": [
+    "interceptor",
+    "function"
+  ],
+  "author": "wenshao314106@163.com",
+  "license": "MIT",
+  "main": "index.js"
+}
