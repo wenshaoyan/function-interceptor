@@ -32,9 +32,9 @@ class Interceptor {
 		Function.prototype.monitor = function (functionName, before, after) {
 			const self = this;
 			return async function () {
-				if (before instanceof Function) before.call(this, {name: functionName, args: arguments});
-				self.apply(this, arguments);
-				if (after instanceof Function) after.call(this, {name: functionName, args: arguments})
+				if (before instanceof Function) await before.call(this, {name: functionName, args: arguments});
+				const result = await self.apply(this, arguments);
+				if (after instanceof Function) after.call(this, {name: functionName, args: arguments, result})
 			};
 		};
 	}
@@ -65,7 +65,7 @@ class Interceptor {
 	}
 
 	/**
-	 * 按原型的name进行监听
+	 * 按指定名称对原型方法进行监听
 	 * @param name
 	 * @param _before
 	 * @param _after
@@ -81,7 +81,7 @@ class Interceptor {
 	}
 
 	/**
-	 * 按正则表示匹配对应的方法名
+	 * 按正则表达式对原型方法名称进行监听
 	 * @param re
 	 * @param _before
 	 * @param _after
@@ -99,7 +99,7 @@ class Interceptor {
 	}
 
 	/**
-	 * 匹配所有的原型方法
+	 * 所有原型方法进行监听
 	 * @param _before
 	 * @param _after
 	 * @return {boolean}
@@ -109,7 +109,7 @@ class Interceptor {
 		return true;
 	}
 	/**
-	 * 按静态的name进行监听
+	 * 按指定名称对静态方法进行监听
 	 * @param name
 	 * @param _before
 	 * @param _after
@@ -124,7 +124,7 @@ class Interceptor {
 		}
 	}
 	/**
-	 * 按正则表示匹配对应的静态方法名
+	 * 按正则表达式对静态方法名称进行监听
 	 * @param re
 	 * @param _before
 	 * @param _after
@@ -141,7 +141,7 @@ class Interceptor {
 	}
 
 	/**
-	 * 匹配所有的静态方法
+	 * 所有静态方法进行监听
 	 * @param _before
 	 * @param _after
 	 * @return {boolean}
