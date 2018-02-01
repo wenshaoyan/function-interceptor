@@ -3,7 +3,9 @@
  * 拦截器
  */
 'use strict';
-
+const getFunctionName = (isAsync) => {
+	return isAsync ? 'monitorAsync' : 'monitor';
+};
 class Interceptor {
 	/**
 	 * 找到对应类的可监听的原型和静态方法
@@ -31,14 +33,24 @@ class Interceptor {
 
 		Function.prototype.monitor = function (functionName, before, after) {
 			const self = this;
-			return async function () {
-				if (before instanceof Function) await before.call(this, {name: functionName, args: arguments});
-				const result = await self.apply(this, arguments);
-				if (after instanceof Function) await after.call(this, {name: functionName, args: arguments, result})
+			return  function () {
+				if (before instanceof Function)  before.call(this, {name: functionName, args: arguments});
+				const result =  self.apply(this, arguments);
+				if (after instanceof Function)  after.call(this, {name: functionName, args: arguments, result})
                 return result;
 
             };
 		};
+        Function.prototype.monitorAsync = function (functionName, before, after) {
+            const self = this;
+            return async function () {
+                if (before instanceof Function)  await before.call(this, {name: functionName, args: arguments});
+                const result = await self.apply(this, arguments);
+                if (after instanceof Function) await after.call(this, {name: functionName, args: arguments, result})
+                return result;
+
+            };
+        };
 	}
 
 
@@ -71,11 +83,12 @@ class Interceptor {
 	 * @param name
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync	是否为异步
 	 * @return {boolean}
 	 */
-	monitorPrototypeName(name, _before, _after) {
+	monitorPrototypeName(name, _before, _after, _isAsync) {
 		if (this.prototypes.has(name)) {
-			this.clazz.prototype[name] = this.clazz.prototype[name].monitor(name, _before, _after);
+			this.clazz.prototype[name] = this.clazz.prototype[name][getFunctionName(_isAsync)](name, _before, _after);
 			return true;
 		} else {
 			return false;
@@ -87,15 +100,16 @@ class Interceptor {
 	 * @param re
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorPrototypeRe(re, _before, _after) {
+	monitorPrototypeRe(re, _before, _after, _isAsync) {
 
 		if (typeof re.test !== 'function') {
 			return false;
 		}
 		this.prototypes.forEach(value => {
-			if (re.test(value)) this.clazz.prototype[value] = this.clazz.prototype[value].monitor(value, _before, _after);
+			if (re.test(value)) this.clazz.prototype[value] = this.clazz.prototype[value][getFunctionName(_isAsync)](value, _before, _after);
 		});
 		return true;
 	}
@@ -104,10 +118,11 @@ class Interceptor {
 	 * 所有原型方法进行监听
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorPrototypeAll(_before, _after) {
-		this.prototypes.forEach(value => this.clazz.prototype[value] = this.clazz.prototype[value].monitor(value, _before, _after));
+	monitorPrototypeAll(_before, _after, _isAsync) {
+		this.prototypes.forEach(value => this.clazz.prototype[value] = this.clazz.prototype[value][getFunctionName(_isAsync)](value, _before, _after));
 		return true;
 	}
 	/**
@@ -115,11 +130,12 @@ class Interceptor {
 	 * @param name
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorStaticName(name, _before, _after) {
+	monitorStaticName(name, _before, _after, _isAsync) {
 		if (this.statics.has(name)) {
-			this.clazz[name] = this.clazz[name].monitor(name, _before, _after);
+			this.clazz[name] = this.clazz[name][getFunctionName(_isAsync)](name, _before, _after);
 			return true;
 		} else {
 			return false;
@@ -130,14 +146,15 @@ class Interceptor {
 	 * @param re
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorStaticRe(re, _before, _after) {
+	monitorStaticRe(re, _before, _after, _isAsync) {
 		if (re.test instanceof Function) {
 			return false;
 		}
 		this.statics.forEach(value => {
-			if (re.test(value)) this.clazz[value] = this.clazz[value].monitor(value, _before, _after);
+			if (re.test(value)) this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after);
 		});
 		return true;
 	}
@@ -146,21 +163,23 @@ class Interceptor {
 	 * 所有静态方法进行监听
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorStaticAll(_before, _after) {
-		this.statics.forEach(value => this.clazz[value] = this.clazz[value].monitor(value, _before, _after));
+	monitorStaticAll(_before, _after, _isAsync) {
+		this.statics.forEach(value => this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after));
 		return true;
 	}
 	/**
 	 * 匹配所有的方法
 	 * @param _before
 	 * @param _after
+	 * @param _isAsync
 	 * @return {boolean}
 	 */
-	monitorAll(_before, _after) {
-		this.monitorStaticAll(_before, _after);
-		this.monitorPrototypeAll(_before, _after);
+	monitorAll(_before, _after, _isAsync) {
+		this.monitorStaticAll(_before, _after, _isAsync);
+		this.monitorPrototypeAll(_before, _after, _isAsync);
 		return true;
 	}
 
@@ -169,6 +188,7 @@ class Interceptor {
 	 */
 	release() {
 		Function.prototype.monitor = undefined;
+		Function.prototype.monitorAsync = undefined;
 	}
 
 

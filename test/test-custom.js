@@ -19,23 +19,18 @@ class Test {
 const interceptor = new Interceptor(Test);
 interceptor.monitorPrototypeName('func1',function (data) {
 	console.log(data.name + ' before');
-},function (data) {
-	return new Promise(resolve => {
-		setTimeout(() => {
-			console.log(data.name + ' after,result=', data.result);
-			resolve();
-		},1000)
-	})
 });
 interceptor.monitorStaticAll(function (data) {
 	console.log(data.name + ' before');
 },function (data) {
 	console.log(data.name + ' after,result=', data.result);
-});
+},true);
 interceptor.release();
 const test = new Test();
-test.func1(1);
-Test.func2(2);
+console.log('===============', test.func1(1));
+(async function () {
+    console.log(await Test.func2(2));
+})();
 // output -----
 // func1 before
 // func2 before

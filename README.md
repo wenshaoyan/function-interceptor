@@ -55,23 +55,18 @@ class Test {
 const interceptor = new Interceptor(Test);
 interceptor.monitorPrototypeName('func1',function (data) {
 	console.log(data.name + ' before');
-},function (data) {
-	return new Promise(resolve => {
-		setTimeout(() => {
-			console.log(data.name + ' after,result=', data.result);
-			resolve();
-		},1000)
-	})
 });
 interceptor.monitorStaticAll(function (data) {
 	console.log(data.name + ' before');
 },function (data) {
 	console.log(data.name + ' after,result=', data.result);
-});
+},true);
 interceptor.release();
 const test = new Test();
-test.func1(1);
-Test.func2(2);
+console.log('===============', test.func1(1));
+(async function () {
+    console.log(await Test.func2(2));
+})();
 // output -----
 // func1 before
 // func2 before
@@ -86,29 +81,30 @@ Test.func2(2);
 ## method
 name: 方法名称
 beforeCallback: 调用方法前执行的的回调函数 支持基于promise异步操作
-afterCallback: 调用方法后执行的的回调函数 支持基于promise异步操作  
+afterCallback: 调用方法后执行的的回调函数 支持基于promise异步操作 
+isAsync: 函数为异步执行 执行时候需要 await 或者then进行执行 
 返回值: 设置成功 返回true 失败false
 
-### monitorPrototypeName(name, beforeCallback, afterCallback) 
+### monitorPrototypeName(name, beforeCallback, afterCallback, isAsync) 
 按指定名称对原型方法进行监听
 
-### monitorPrototypeRe(re, beforeCallback, afterCallback)
+### monitorPrototypeRe(re, beforeCallback, afterCallback, isAsync)
 按正则表达式对原型方法名称进行监听 
 
-### monitorPrototypeAll(name, beforeCallback, afterCallback)
+### monitorPrototypeAll(name, beforeCallback, afterCallback, isAsync)
 所有原型方法进行监听 
 
 
-### monitorStaticName(name, beforeCallback, afterCallback)
+### monitorStaticName(name, beforeCallback, afterCallback, isAsync)
 按指定名称对静态方法进行监听
 
-### monitorStaticRe(re, beforeCallback, afterCallback)
+### monitorStaticRe(re, beforeCallback, afterCallback, isAsync)
 按正则表达式对静态方法名称进行监听 
 
-### monitorStaticAll(name, beforeCallback, afterCallback)
+### monitorStaticAll(name, beforeCallback, afterCallback, isAsync)
 所有静态方法进行监听
 
-### monitorAll(beforeCallback, afterCallback)
+### monitorAll(beforeCallback, afterCallback, isAsync)
 匹配所有的方法
 
 ### release()
