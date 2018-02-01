@@ -34,8 +34,10 @@ class Interceptor {
 			return async function () {
 				if (before instanceof Function) await before.call(this, {name: functionName, args: arguments});
 				const result = await self.apply(this, arguments);
-				if (after instanceof Function) after.call(this, {name: functionName, args: arguments, result})
-			};
+				if (after instanceof Function) await after.call(this, {name: functionName, args: arguments, result})
+                return result;
+
+            };
 		};
 	}
 
