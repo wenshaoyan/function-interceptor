@@ -9,8 +9,9 @@ class Log {
 
 const interceptor = new Interceptor(Log);
 interceptor.monitorPrototypeName('info',  function(data) {
-    console.log(data.args);
-    console.log(new Error());
+    const error = new Error();
+    console.log(error.stack,error.stack.split(/\n\s+/));
+
 });
 interceptor.release();
 (function () {
@@ -35,7 +36,6 @@ class Test{
     a() {
         var yanshaowen = {a:1};
         const log = new Log();
-        console.log(global)
         log.info(this);
     }
 }
