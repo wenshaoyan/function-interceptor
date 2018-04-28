@@ -3,41 +3,104 @@
  * 拦截器
  */
 'use strict';
-const getFunctionName = (isAsync) => {
+
+function getFunctionName(isAsync) {
     return isAsync ? 'monitorAsync' : 'monitor';
-};
+}
+
 class Interceptor {
     /**
      * 找到对应类的可监听的原型和静态方法
      * @param _clazz    监听的类
+     * @param _type
+     * @param _key
      */
-    constructor(_clazz) {
-        if (!(_clazz instanceof Function)) throw new Error('clazz type not is Function');
-        const _prototypes = Object.getOwnPropertyNames(_clazz.prototype);
-        const prototypes = [];
-        for (const p of _prototypes) {
-            if (p !== 'constructor') {
-                prototypes.push(p);
-            }
-        }
-        const _statics = Object.getOwnPropertyNames(_clazz);
-        const statics = [];
-        for (const p of _statics) {
-            if (p !== 'length' && p !== 'prototype' && p !== 'name') {
-                statics.push(p);
-            }
-        }
+    constructor(_clazz, _type, _key) {
         this._clazz = _clazz;
-        this._prototypes = new Set(prototypes);
-        this._statics = new Set(statics);
+        this._type = _type;
+        this._key = _key === undefined || _key === null ? 'resolve': _key;
+        this._prototypes = null;
+        this._statics = null;
         this._back = {
             p: {},
             s: {}
         };
         this.init();
-
+        this.reload();
     }
 
+    reload() {
+        let prototypes = [], statics = [], result = null;
+        switch (this.type) {
+            case 'class':
+                result = this._constructorClass();
+                break;
+            case 'factory':
+                result = this._constructorFactory();
+                break;
+            case 'story':
+                result = this._constructorStory();
+                break;
+        }
+        if (result) {
+            prototypes = result.prototypes;
+            statics = result.statics;
+        }
+
+        this.prototypes = new Set(prototypes);
+        this.statics = new Set(statics);
+    }
+
+    _constructorClass() {
+        const prototypes = [], statics = [];
+        if (!(this.clazz instanceof Function)) throw new Error('clazz type not is Function');
+
+        const _prototypes = Object.getOwnPropertyNames(this.clazz.prototype);
+        for (const p of _prototypes) {
+            if (p !== 'constructor') {
+                prototypes.push(p);
+            }
+        }
+        const _statics = Object.getOwnPropertyNames(this.clazz);
+        for (const p of _statics) {
+            if (p !== 'length' && p !== 'prototype' && p !== 'name') {
+                statics.push(p);
+            }
+        }
+        return {prototypes, statics};
+    }
+
+    _constructorFactory() {
+        const prototypes = [], statics = [];
+        if (typeof this.clazz !== 'object') throw new Error('clazz type not is json');
+        Object.keys(this.clazz).forEach(v => statics.push(v));
+        return {prototypes, statics};
+    }
+
+    _constructorStory() {
+        const prototypes = [], statics = [];
+        if (typeof this.clazz !== 'object') throw new Error('clazz type not is json');
+        Object.keys(this.clazz).forEach(v => {
+            if (typeof this.clazz[v] === 'object' && typeof this.clazz[v][this.key] === 'function') statics.push(v);
+        });
+        return {prototypes, statics};
+    }
+
+    get key() {
+        return this._key;
+    }
+
+    set key(value) {
+        this._key = value;
+    }
+
+    get type() {
+        return this._type;
+    }
+
+    set type(value) {
+        this._type = value;
+    }
 
     get prototypes() {
         return this._prototypes;
@@ -82,7 +145,7 @@ class Interceptor {
                 return function () {
                     if (before instanceof Function) before.call(this, {name: functionName, args: arguments});
                     const result = self.apply(this, arguments);
-                    if (after instanceof Function) after.call(this, {name: functionName, args: arguments, result})
+                    if (after instanceof Function) after.call(this, {name: functionName, args: arguments, result});
                     return result;
 
                 };
@@ -94,7 +157,11 @@ class Interceptor {
                 return async function () {
                     if (before instanceof Function) await before.call(this, {name: functionName, args: arguments});
                     const result = await self.apply(this, arguments);
-                    if (after instanceof Function) await after.call(this, {name: functionName, args: arguments, result})
+                    if (after instanceof Function) await after.call(this, {
+                        name: functionName,
+                        args: arguments,
+                        result
+                    });
                     return result;
 
                 };
@@ -154,7 +221,7 @@ class Interceptor {
     monitorPrototypeAll(_before, _after, _isAsync) {
         this.prototypes.forEach(value => {
             this._addBackFunction('p', value, this.clazz.prototype[value]);
-            this.clazz.prototype[value] = this.clazz.prototype[value][getFunctionName(_isAsync)](value, _before, _after)
+            this.clazz.prototype[value] = this.clazz.prototype[value][getFunctionName(_isAsync)](value, _before, _after);
         });
         return true;
     }
@@ -170,8 +237,12 @@ class Interceptor {
     monitorStaticName(name, _before, _after, _isAsync) {
         if (this.statics.has(name)) {
             this._addBackFunction('s', name, this.clazz[name]);
-            this.clazz[name] = this.clazz[name][getFunctionName(_isAsync)](name, _before, _after);
-            return true;
+            if (this.type === 'story') {
+                this.clazz[name][this.key] = this.clazz[name][this.key][getFunctionName(_isAsync)](name, _before, _after);
+            } else {
+                this.clazz[name] = this.clazz[name][getFunctionName(_isAsync)](name, _before, _after);
+            }
+
         } else {
             return false;
         }
@@ -191,7 +262,13 @@ class Interceptor {
         }
         this.statics.forEach(value => {
             this._addBackFunction('s', value, this.clazz[value]);
-            if (re.test(value)) this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after);
+            if (re.test(value)) {
+                if (this.type === 'story') {
+                    this.clazz[value][this.key] = this.clazz[value][this.key][getFunctionName(_isAsync)](value, _before, _after);
+                } else {
+                    this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after);
+                }
+            }
         });
         return true;
     }
@@ -206,7 +283,12 @@ class Interceptor {
     monitorStaticAll(_before, _after, _isAsync) {
         this.statics.forEach(value => {
             this._addBackFunction('s', value, this.clazz[value]);
-            this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after)
+            if (this.type === 'story') {
+                this.clazz[value][this.key] = this.clazz[value][this.key][getFunctionName(_isAsync)](value, _before, _after);
+            } else {
+                this.clazz[value] = this.clazz[value][getFunctionName(_isAsync)](value, _before, _after);
+
+            }
         });
         return true;
     }

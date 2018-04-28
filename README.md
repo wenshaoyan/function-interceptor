@@ -8,7 +8,17 @@ $ npm install function-interceptor
 ```
 ## 创建拦截器对象
  object为对应的监听对象
-const interceptor = new Interceptor(Object);
+const interceptor = new Interceptor(object,type,key);
+```text
+object: 必填 监听的对象
+type: 必填 类型,包含下面三种类型
+    class: 通过class或原型+构造函数创建的对象
+    factory: 通过工厂模式创建的一级嵌套对象
+    story: 通过工厂模式创建的二级嵌套对象
+key: 可选 当type=story时候对应的方法的key 默认值为resolve
+
+```
+
 ## 添加完监视器后把添加的原型方法删除
 interceptor.release();
  
@@ -77,6 +87,77 @@ console.log('===============', test.func1(1));
 
 ```
 
+### 监听通过工厂模式创建的一级嵌套对象的函数
+```js
+const Interceptor = require('function-interceptor');
+const jsonObject = {
+    query() {
+        return 'yes';
+    },
+    move: function () {
+        return new Promise(resolve => {
+            resolve('yes');
+        })
+    }
+};
+
+const interceptor = new Interceptor(jsonObject, 'json');
+interceptor.monitorStaticName('query', function ({name, args}) {
+    console.log(name, args);
+}, function ({name, args, result}) {
+    console.log(name, args, result);
+}, false);
+
+interceptor.monitorStaticName('move', function ({name, args}) {
+    console.log(name, args);
+}, function ({name, args, result}) {
+    console.log(name, args, result);
+}, true);
+
+interceptor.release();
+
+
+jsonObject.query(123);
+jsonObject.move(123, 124);
+// output -----
+// query { '0': 123 }
+// query { '0': 123 } yes
+// move { '0': 123, '1': 124 }
+// move { '0': 123, '1': 124 } yes
+
+```
+### 监听通过工厂模式创建的二级嵌套对象的函数 如graphql
+```js
+const Interceptor = require('../index');
+const jsonObject = {
+    queryData: {
+        name: 'query',
+        description: '查询某个数据',
+        resolve(){
+            return 'yes';
+        }
+    }
+
+};
+
+const interceptor = new Interceptor(jsonObject, 'story');
+interceptor.monitorStaticName('queryData', function ({name, args}) {
+    console.log(name, args);
+}, function ({name, args, result}) {
+    console.log(name, args, result);
+}, false);
+
+
+interceptor.release();
+
+
+jsonObject.queryData.resolve(123);
+// output -----
+// queryData { '0': 123 }
+// queryData { '0': 123 } yes
+
+
+```
 
 ## method
 name: 方法名称
